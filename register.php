@@ -8,9 +8,72 @@ $name_err=$email_err = $password_err = $confirm_password_err = "";
  
 // Processing form data when form is submitted
 if($_SERVER["REQUEST_METHOD"] == "POST"){
+ 
+     //Validate name
+    if(empty(trim($_POST["name"]))){
+        $name_err = "Please enter Your full name.";
+    } else{
+        // Prepare a select statement
+        $sql = "SELECT id FROM users WHERE name = ?";
+        
+        if($stmt = $mysqli->prepare($sql)){
+            // Bind variables to the prepared statement as parameters
+            $stmt->bind_param("s", $param_name);
+            
+            // Set parameters
+            $param_name = trim($_POST["name"]);
+            
+            // Attempt to execute the prepared statement
+            if($stmt->execute()){
+                // store result
+                $stmt->store_result();
+                
+                if($stmt->num_rows == 1){
+                    $name_err = "This Name is already taken.";
+                } else{
+                    $name = trim($_POST["name"]);
+                }
+            } else{
+                echo "Oops! Something went wrong. Please try again later.";
+            }
+        }
+         
+        // Close statement
+        $stmt->close();
+    }
+    
+
     // Validate email
     if(empty(trim($_POST["email"]))){
         $email_err = "Please enter a email.";
+    } else{
+        // Prepare a select statement
+        $sql = "SELECT id FROM users WHERE email = ?";
+        
+        if($stmt = $mysqli->prepare($sql)){
+            // Bind variables to the prepared statement as parameters
+            $stmt->bind_param("s", $param_email);
+            
+            // Set parameters
+            $param_email = trim($_POST["email"]);
+            
+            // Attempt to execute the prepared statement
+            if($stmt->execute()){
+                // store result
+                $stmt->store_result();
+                
+                if($stmt->num_rows == 1){
+                    $email_err = "This email is already taken.";
+                } else{
+                    $email = trim($_POST["email"]);
+                }
+            } else{
+                echo "Oops! Something went wrong. Please try again later.";
+            }
+        }
+         
+        // Close statement
+        $stmt->close();
     }
     
     // Validate password
@@ -31,36 +94,37 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             $confirm_password_err = "Password did not match.";
         }
     }
-
-    function password($pass) {
-        return md5(sha1($pass));
-    }
     
-    if($confirm_password_err == "" && ($password_err == "") && ($email_err == "")){
-        $email = $_POST['email'];
-        $name = $_POST['name'];
-        $hashed_pass = password($_POST['password']);
-        $sql="SELECT * FROM users WHERE email = '$email'";
-        $result = mysqli_query($conn,$sql);
-        if($result->num_rows > 0){
-            echo 'User Already Exist';
-        }else{
-            $sql3 = "INSERT INTO users (`name`, `email`, `password`) VALUES ('$name', '$email', '$hashed_pass')";
-        // var_dump($sql3);die();
-            if(mysqli_query($conn,$sql3)){
-                session_start();
-                            
-                // Store data in session variables
-                $_SESSION["loggedin"] = true; 
-                $_SESSION["email"] = $email;  
-                
-                header('Location: welcome.php');
+    // Check input errors before inserting in database
+    if(empty($name_err)&&empty($email_err) && empty($password_err) && empty($confirm_password_err)){
+        
+        // Prepare an insert statement
+        $sql = "INSERT INTO users (name, email, password) VALUES (?, ?, ?)";
+         
+        if($stmt = $mysqli->prepare($sql)){
+            // Bind variables to the prepared statement as parameters
+            $stmt->bind_param("sss",$param_name, $param_email, $param_password);
+            
+            // Set parameters
+            $param_name= $name;
+            $param_email = $email;
+            $param_password = password_hash($password, PASSWORD_DEFAULT); // Creates a password hash
+            
+            // Attempt to execute the prepared statement
+            if($stmt->execute()){
+                // Redirect to login page
+                header("location: index.php");
             } else{
-                echo "ERROR: Could not able to execute sql";
+                echo "Something went wrong. Please try again later.";
             }
         }
+         
+        // Close statement
+        $stmt->close();
     }
-    die();
+    
+    // Close connection
+    $mysqli->close();
 }
 ?>
  
@@ -88,30 +152,30 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             <input type="radio" name="active-log-panel" id="log-login-show">
         </div>
 		
-		<div class="white-panel" style="padding: 20px;">
-			<form action="?" method="post">
+		<div class="white-panel">
+			<form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
 					<h2 class="sign-up">Sign Up</h2>
 					<p>Please fill this form to create an account.</p>
 			
 					<div class="form-group <?php echo (!empty($name_err)) ? 'has-error' : ''; ?>">
-						<input type="text" required="" name="name" width="80%" placeholder="Full name" class="form-control" value="<?php echo $name; ?>">
+						<input type="text" name="name" width="80%" placeholder="Full name" class="form-control" value="<?php echo $name; ?>">
 						<span class="help-block"><?php echo $name_err; ?></span>
 					</div>    
 					<div class="form-group <?php echo (!empty($email_err)) ? 'has-error' : ''; ?>">
-					<input type="text" required="" name="email" placeholder="Email address" class="form-control" value="<?php echo $email; ?>">
+					<input type="text" name="email" placeholder="Email address" class="form-control" value="<?php echo $email; ?>">
 						<span class="help-block"><?php echo $email_err; ?></span>
 					</div>    
 					<div class="form-group <?php echo (!empty($password_err)) ? 'has-error' : ''; ?>">
 						
-						<input type="password" required="" name="password" placeholder="Password" class="form-control" value="<?php echo $password; ?>">
+						<input type="password" name="password" placeholder="Password" class="form-control" value="<?php echo $password; ?>">
 						<span class="help-block"><?php echo $password_err; ?></span>
 					</div>
 					<div class="form-group <?php echo (!empty($confirm_password_err)) ? 'has-error' : ''; ?>">
-						<input type="password" required="" name="confirm_password" placeholder="Confirm Password" class="form-control" value="<?php echo $confirm_password; ?>">
+						<input type="password" name="confirm_password" placeholder="Confirm Password" class="form-control" value="<?php echo $confirm_password; ?>">
 						<span class="help-block"><?php echo $confirm_password_err; ?></span>
 					</div>
 					<div class="form-group">
-						<button type="submit" class="btn btn-primary">Submit</button>
+						<input type="submit" class="btn btn-primary" value="Submit">
 						<input type="reset" class="btn btn-default" value="Reset">
 					</div>
 			</form>
